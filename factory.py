@@ -1,32 +1,28 @@
 import ast
 import copy
+import os
 
 
-FILE_NAME = "client.py"
-
-with open(f"../personal/finance_client/finance_client/csv/{FILE_NAME}") as f:
-    source = f.read()
-
-ast_object = ast.parse(source, FILE_NAME)
-
-modules = {}
-
-for import_statements in ast_object.body:
-    if isinstance(import_statements, ast.Import):
-        for module in import_statements.names:
-            if module.asname is None:
-                modules[module.name] = ast.Import(names=[ast.alias(name=module.name)])
-            else:
-                modules[module.asname] = ast.Import(names=[ast.alias(name=module.name, asname=module.asname)])
-    elif isinstance(import_statements, ast.ImportFrom):
-        module_name = import_statements.module
-        for module in import_statements.names:
-            if module.asname is None:
-                modules[module.name] = ast.ImportFrom(module=module_name, names=[ast.alias(name=module.name)])
-            else:
-                modules[module.name] = ast.ImportFrom(module=module_name, names=[ast.alias(name=module.name, asname=module.asname)])
-    else:
-        print(import_statements)
+def get_defined_modules(ast_object):
+    modules = {}
+    for import_statements in ast_object.body:
+        if isinstance(import_statements, ast.Import):
+            for module in import_statements.names:
+                if module.asname is None:
+                    modules[module.name] = ast.Import(names=[ast.alias(name=module.name)])
+                else:
+                    modules[module.asname] = ast.Import(names=[ast.alias(name=module.name, asname=module.asname)])
+        elif isinstance(import_statements, ast.ImportFrom):
+            module_name = import_statements.module
+            for module in import_statements.names:
+                if module.asname is None:
+                    modules[module.name] = ast.ImportFrom(module=module_name, names=[ast.alias(name=module.name)])
+                else:
+                    modules[module.name] = ast.ImportFrom(module=module_name, names=[ast.alias(name=module.name, asname=module.asname)])
+        else:
+            pass
+            #print(import_statements)
+    return modules
 
 def is_abstruct_method(node):
     if isinstance(node, ast.FunctionDef):
@@ -50,38 +46,49 @@ def exstruct_abstruct_method(class_node):
                 methods.append(method)
     return methods
 
-def get_abstractmethod_definitions(node):
+def get_abstractmethod_definitions(node, new_class_name):
     abstractmethod_definitions = []
     for child in ast.iter_child_nodes(node):
         if isinstance(child, ast.ClassDef):
             abs_methods = exstruct_abstruct_method(child)
             if len(abs_methods) > 0:
-                target_class = copy.copy(child)
-                target_class.body = abs_methods
+                target_class = ast.ClassDef(name=new_class_name, bases=[ast.Name(child.name)], body=abs_methods, keywords=[], decorator_list=[])
                 abstractmethod_definitions.append(target_class)
                 
     return abstractmethod_definitions
 
-abstract_methods = get_abstractmethod_definitions(ast_object)
-
-with open(FILE_NAME, "w") as fp:
-    fp.write(ast.unparse(abstract_methods))
-
-
-item = abstract_methods[0].body[0]
-
-required_modules = []
-
-def get_used_modules(arg):
+def get_utilized_modules(ast_object, defined_modules):
     used_modules = []
-    if isinstance(arg, ast.arg):
-        if isinstance(arg.annotation, ast.Name):
-            if arg.annotation.id in modules:
-                used_modules.append(modules[arg.annotation.id])
+    for node in ast.iter_child_nodes(ast_object):
+        if isinstance(ast_object, ast.Name):
+            id = ast_object.id
+            if id in defined_modules:
+                used_modules.append(defined_modules[id])
+        used_modules.extend(get_utilized_modules(node, defined_modules))
     return used_modules
 
-for arg in item.args.args:
-    required_modules.extend(get_used_modules(arg))
 
-for arg in item.args.kwonlyargs:
-    required_modules.extend(get_used_modules(arg))
+def create_template(in_file_path, out_file_path=None, out_class_name="ABSTemplate"):
+    with open(in_file_path) as f:
+        source = f.read()
+    file_name = os.path.basename(in_file_path)
+    ast_object = ast.parse(source, file_name)
+
+    abstract_methods = get_abstractmethod_definitions(ast_object, out_class_name)
+    defined_modules = get_defined_modules(ast_object)
+    used_modules = []
+    for method in abstract_methods:
+        used_modules.extend(get_utilized_modules(method, defined_modules))
+    used_modules = list(set(used_modules))
+    template = used_modules + abstract_methods
+
+    with open(f"./{file_name}", "w") as fp:
+        fp.write(ast.unparse(template))
+
+
+if __name__ == "__main__":
+    FILE_NAME = "client.py"
+
+    file_path = f"../personal/finance_client/finance_client/csv/{FILE_NAME}"
+
+    create_template(file_path)
