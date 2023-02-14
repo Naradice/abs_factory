@@ -5,6 +5,7 @@ import os
 
 DEFAULT_OUT_NAME = 'ABSTemplate'
 
+
 def get_defined_modules(ast_object):
     modules = {}
     for import_statements in ast_object.body:
@@ -20,11 +21,15 @@ def get_defined_modules(ast_object):
                 if module.asname is None:
                     modules[module.name] = ast.ImportFrom(module=module_name, names=[ast.alias(name=module.name)])
                 else:
-                    modules[module.name] = ast.ImportFrom(module=module_name, names=[ast.alias(name=module.name, asname=module.asname)])
+                    modules[module.name] = ast.ImportFrom(
+                        module=module_name,
+                        names=[ast.alias(name=module.name, asname=module.asname)]
+                    )
         else:
             pass
-            #print(import_statements)
+            # print(import_statements)
     return modules
+
 
 def is_abstruct_method(node):
     if isinstance(node, ast.FunctionDef):
@@ -38,15 +43,17 @@ def is_abstruct_method(node):
     else:
         return False
 
+
 def exstruct_abstruct_method(class_node):
     methods = []
     if isinstance(class_node, ast.ClassDef):
         for child in ast.iter_child_nodes(class_node):
             if is_abstruct_method(child):
-                method  = copy.copy(child)
+                method = copy.copy(child)
                 method.decorator_list = []
                 methods.append(method)
     return methods
+
 
 def get_abstractmethod_definitions(node, new_class_name):
     abstractmethod_definitions = []
@@ -54,10 +61,14 @@ def get_abstractmethod_definitions(node, new_class_name):
         if isinstance(child, ast.ClassDef):
             abs_methods = exstruct_abstruct_method(child)
             if len(abs_methods) > 0:
-                target_class = ast.ClassDef(name=new_class_name, bases=[ast.Name(child.name)], body=abs_methods, keywords=[], decorator_list=[])
+                target_class = ast.ClassDef(
+                    name=new_class_name, bases=[ast.Name(child.name)],
+                    body=abs_methods, keywords=[], decorator_list=[]
+                )
                 abstractmethod_definitions.append(target_class)
-                
+
     return abstractmethod_definitions
+
 
 def get_utilized_modules(ast_object, defined_modules):
     used_modules = []
@@ -74,15 +85,15 @@ def create_template(in_file_path, out_file_path=None, out_class_name=DEFAULT_OUT
     with open(in_file_path) as f:
         source = f.read()
     file_name = os.path.basename(in_file_path)
-    
+
     if out_file_path is None:
         out_file_path = os.path.abspath(f"{os.getcwd()}/{file_name}")
         if os.path.exists(out_file_path):
-            ##change file name to avoid overwriting it
+            # change file name to avoid overwriting it
             base_file_name = os.path.splitext(file_name)[0]
             file_name = f"{base_file_name}_template.py"
             out_file_path = os.path.abspath(f"{os.getcwd()}/{file_name}")
-        
+
     ast_object = ast.parse(source, file_name)
 
     abstract_methods = get_abstractmethod_definitions(ast_object, out_class_name)
@@ -98,10 +109,10 @@ def create_template(in_file_path, out_file_path=None, out_class_name=DEFAULT_OUT
     print("template file was created!")
 
 
-if __name__ == "__main__": 
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    
-    parser.add_argument("-f","--file", required=True, help="specify file name which has abstruct class.")
+
+    parser.add_argument("-f", "--file", required=True, help="specify file name which has abstruct class.")
     parser.add_argument("-o", "--out", help="specify file name to output.", default=None)
     parser.add_argument("-n", "--name", help="specify class name defined in output file.", default=DEFAULT_OUT_NAME)
 
