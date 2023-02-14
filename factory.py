@@ -1,7 +1,9 @@
+import argparse
 import ast
 import copy
 import os
 
+DEFAULT_OUT_NAME = 'ABSTemplate'
 
 def get_defined_modules(ast_object):
     modules = {}
@@ -68,10 +70,19 @@ def get_utilized_modules(ast_object, defined_modules):
     return used_modules
 
 
-def create_template(in_file_path, out_file_path=None, out_class_name="ABSTemplate"):
+def create_template(in_file_path, out_file_path=None, out_class_name=DEFAULT_OUT_NAME):
     with open(in_file_path) as f:
         source = f.read()
     file_name = os.path.basename(in_file_path)
+    
+    if out_file_path is None:
+        out_file_path = os.path.abspath(f"{os.getcwd()}/{file_name}")
+        if os.path.exists(out_file_path):
+            ##change file name to avoid overwriting it
+            base_file_name = os.path.splitext(file_name)[0]
+            file_name = f"{base_file_name}_template.py"
+            out_file_path = os.path.abspath(f"{os.getcwd()}/{file_name}")
+        
     ast_object = ast.parse(source, file_name)
 
     abstract_methods = get_abstractmethod_definitions(ast_object, out_class_name)
@@ -82,13 +93,21 @@ def create_template(in_file_path, out_file_path=None, out_class_name="ABSTemplat
     used_modules = list(set(used_modules))
     template = used_modules + abstract_methods
 
-    with open(f"./{file_name}", "w") as fp:
+    with open(out_file_path, "w") as fp:
         fp.write(ast.unparse(template))
+    print("template file was created!")
 
 
-if __name__ == "__main__":
-    FILE_NAME = "client.py"
+if __name__ == "__main__": 
+    parser = argparse.ArgumentParser()
+    
+    parser.add_argument("-f","--file", required=True, help="specify file name which has abstruct class.")
+    parser.add_argument("-o", "--out", help="specify file name to output.", default=None)
+    parser.add_argument("-n", "--name", help="specify class name defined in output file.", default=DEFAULT_OUT_NAME)
 
-    file_path = f"../personal/finance_client/finance_client/csv/{FILE_NAME}"
+    args = parser.parse_args()
 
-    create_template(file_path)
+    if os.path.exists(args.file):
+        create_template(args.file, args.out, args.name)
+    else:
+        print("please specify existing file path.")
