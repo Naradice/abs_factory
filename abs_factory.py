@@ -3,7 +3,7 @@ import ast
 import copy
 import os
 
-DEFAULT_OUT_NAME = 'ABSTemplate'
+DEFAULT_OUT_NAME = "ABSTemplate"
 
 
 def get_defined_modules(ast_object):
@@ -21,10 +21,7 @@ def get_defined_modules(ast_object):
                 if module.asname is None:
                     modules[module.name] = ast.ImportFrom(module=module_name, names=[ast.alias(name=module.name)])
                 else:
-                    modules[module.name] = ast.ImportFrom(
-                        module=module_name,
-                        names=[ast.alias(name=module.name, asname=module.asname)]
-                    )
+                    modules[module.name] = ast.ImportFrom(module=module_name, names=[ast.alias(name=module.name, asname=module.asname)])
         else:
             pass
             # print(import_statements)
@@ -61,10 +58,7 @@ def get_abstractmethod_definitions(node, new_class_name):
         if isinstance(child, ast.ClassDef):
             abs_methods = exstruct_abstruct_method(child)
             if len(abs_methods) > 0:
-                target_class = ast.ClassDef(
-                    name=new_class_name, bases=[ast.Name(child.name)],
-                    body=abs_methods, keywords=[], decorator_list=[]
-                )
+                target_class = ast.ClassDef(name=new_class_name, bases=[ast.Name(child.name)], body=abs_methods, keywords=[], decorator_list=[])
                 abstractmethod_definitions.append(target_class)
 
     return abstractmethod_definitions
